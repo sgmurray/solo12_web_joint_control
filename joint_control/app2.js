@@ -10,7 +10,9 @@ class AppComponent extends React.Component {
         this.state = {
             robotState: '-',
             connected: false,
-            joint_goals: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01]
+            joint_goals: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01],
+            joint_pos: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01],
+            tracking: false
         }
     }
     name = 'React.js component'
@@ -31,6 +33,15 @@ class AppComponent extends React.Component {
             this.setState({
                 connected: true
             })
+            let listener = new ROSLIB.Topic({
+                ros : ros,
+                name : '/joint_states',
+                messageType : 'sensor_msgs/msg/JointState'
+            });
+            listener.subscribe((message) => {
+                // console.log(message);
+                this.updateJointPos(message);
+            });
         })
         ros.on('error', function (error) {
             console.log('Error connecting to websocket server: ', error)
@@ -45,6 +56,11 @@ class AppComponent extends React.Component {
     disconnectRosbridge = () => {
         ros.close()
     }
+    updateJointPos = (message) =>{
+        this.setState({
+            joint_pos: message.position
+        })
+    }
     robotMoveLegs = () => {
         let topic = new ROSLIB.Topic({
             ros: ros,
@@ -54,12 +70,10 @@ class AppComponent extends React.Component {
         let msg = new ROSLIB.Message({
             data: this.state.joint_goals
         })
-        console.log(this.state.joint_goals)
         topic.publish(msg)
         this.setState({
-            robotState: 'running in 90s a new way i like to be'
+            robotState: 'joint goals published'
         })
-
     }
     robotStop = () => {
         let topic = new ROSLIB.Topic({
@@ -82,7 +96,14 @@ class AppComponent extends React.Component {
     updateJointGoals = (i, goal) => {
         this.state.joint_goals[i] = parseFloat(goal);
         this.forceUpdate();
-        
+        if (this.state.tracking){
+            this.robotMoveLegs();
+        }
+    }
+
+    turnOnTracking = () =>{
+        this.setState({tracking: true});
+        this.forceUpdate();
         this.robotMoveLegs();
     }
 
@@ -90,7 +111,7 @@ class AppComponent extends React.Component {
         return (
             <div>
                 <div>
-                    <h2>Hello from {this.name}</h2>
+                    <h2>Solo12 ROS2 Control Web Interface</h2>
                 </div>
 
                 <div>
@@ -101,9 +122,18 @@ class AppComponent extends React.Component {
                     {!this.state.connected && <button onClick={this.connectToRosbridge}>Connect</button>}
                     {this.state.connected && <button onClick={this.disconnectRosbridge}>Disconnect</button>}
                 </div>
+
+                <div>
+                    <input type="radio" id="on" name="tracking" value="on" onClick={(event) => this.turnOnTracking()}/>
+                    <label htmlFor="on">ON</label><br />
+                    <input type="radio" id="off" name="tracking" value="off" onClick={(event) => this.setState({tracking: false})}/>
+                    <label htmlFor="off">OFF</label><br />
+                </div>
         
                 <div class="slidecontainer">
                     <input type="range" min={this.hfe_lower} max={this.hfe_upper} defaultValue="0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(0,event.target.value)}></input>
+                    <p>Joint goal: {this.state.joint_goals[0]} </p>
+                    <p>Joint position: {this.state.joint_pos[8]} </p>
                 </div>
 
 
