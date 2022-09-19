@@ -9,11 +9,14 @@ class AppComponent extends React.Component {
         super(props)
         this.state = {
             robotState: '-',
-            connected: false
+            connected: false,
+            joint_goals: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01]
         }
     }
     name = 'React.js component'
     robotState = 'Stopped'
+    hfe_upper = 1.45
+    hfe_lower = -1.45
     connectToRosbridge = () => {
         try {
             ros = new ROSLIB.Ros({
@@ -42,22 +45,17 @@ class AppComponent extends React.Component {
     disconnectRosbridge = () => {
         ros.close()
     }
-    robotCircles = () => {
+    robotMoveLegs = () => {
         let topic = new ROSLIB.Topic({
             ros: ros,
             name: '/forward_position_controller/commands',
             messageType: 'std_msgs/msg/Float64MultiArray'
         })
-        let datum = new ROSLIB.Message({
-            data: 0.4
-        })
         let msg = new ROSLIB.Message({
-            // layout: {dim : [{size: 12, stride: 1}], data_offset:0},
-            data: [datum, datum, datum, datum, datum, datum, datum, datum, datum, datum, datum, datum]
-            //data: 0.4
+            data: this.state.joint_goals
         })
+        console.log(this.state.joint_goals)
         topic.publish(msg)
-        //this.robotState = 'running in circles...'
         this.setState({
             robotState: 'running in 90s a new way i like to be'
         })
@@ -81,6 +79,13 @@ class AppComponent extends React.Component {
         //this.robotState = 'Stopped'
     }
 
+    updateJointGoals = (i, goal) => {
+        this.state.joint_goals[i] = parseFloat(goal);
+        this.forceUpdate();
+        
+        this.robotMoveLegs();
+    }
+
     render() {
         return (
             <div>
@@ -89,21 +94,27 @@ class AppComponent extends React.Component {
                 </div>
 
                 <div>
-                    <label>Enter your rosbridge address dkhfsahdkfjahsk</label>
+                    <label>Enter your rosbridge address</label>
                     <br />
                     <input type="text" id="rosbridge_address" />
                     <br />
                     {!this.state.connected && <button onClick={this.connectToRosbridge}>Connect</button>}
                     {this.state.connected && <button onClick={this.disconnectRosbridge}>Disconnect</button>}
                 </div>
+        
+                <div class="slidecontainer">
+                    <input type="range" min={this.hfe_lower} max={this.hfe_upper} defaultValue="0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(0,event.target.value)}></input>
+                </div>
+
 
                 <div>
                     <h3>Robot actions</h3>
                     <p>Robot is {this.state.robotState}</p>
                     <button onClick={this.robotCircles}>Run in circles</button>
-                    <br />
+                    <br/>
                     <button onClick={this.robotStop}>Stop</button>
                 </div>
+
             </div>
         )
     }
