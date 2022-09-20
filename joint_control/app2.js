@@ -12,7 +12,8 @@ class AppComponent extends React.Component {
             connected: false,
             joint_goals: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01],
             joint_pos: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01],
-            tracking: false
+            tracking: false,
+            controller: 'position'
         }
     }
     name = 'React.js component'
@@ -42,6 +43,8 @@ class AppComponent extends React.Component {
                 // console.log(message);
                 this.updateJointPos(message);
             });
+            
+
         })
         ros.on('error', function (error) {
             console.log('Error connecting to websocket server: ', error)
@@ -61,7 +64,7 @@ class AppComponent extends React.Component {
             joint_pos: message.position
         })
     }
-    robotMoveLegs = () => {
+    publishPositionGoal = () => {
         let topic = new ROSLIB.Topic({
             ros: ros,
             name: '/forward_position_controller/commands',
@@ -74,6 +77,29 @@ class AppComponent extends React.Component {
         this.setState({
             robotState: 'joint goals published'
         })
+    }
+    publishTrajectoryGoal = () => {
+        let topic = new ROSLIB.Topic({
+            ros: ros,
+            name: '/position_trajectory_controller/joint_trajectory',
+            messageType: 'trajectory_msgs/msg/JointTrajectory'
+        })
+        let msg = new ROSLIB.Message({
+            joint_names : ["FL_HAA"],
+            points :  [{positions: [this.state.joint_goals[0]] , time_from_start : {sec: 3.0}}]
+        })
+        topic.publish(msg)
+        console.log("Published joint trajectory YOLO")
+    }
+
+    robotMoveLegs = () => {
+        console.log("in move legs")
+        if (this.state.controller == 'position'){
+            this.publishPositionGoal();
+        }
+        else if (this.state.controller == 'trajectory'){
+            this.publishTrajectoryGoal();
+        }
     }
     robotStop = () => {
         let topic = new ROSLIB.Topic({
@@ -126,8 +152,15 @@ class AppComponent extends React.Component {
                 <div>
                     <input type="radio" id="on" name="tracking" value="on" onClick={(event) => this.turnOnTracking()}/>
                     <label htmlFor="on">ON</label><br />
-                    <input type="radio" id="off" name="tracking" value="off" onClick={(event) => this.setState({tracking: false})}/>
-                    <label htmlFor="off">OFF</label><br />
+                    <input type="radio" id="off" name="tracking" value="off" defaultChecked onClick={(event) => this.setState({tracking: false})}/>
+                    <label htmlFor="off">OFF</label><br /> 
+                </div>
+
+                <div>
+                    <input type="radio" id="on" name="controller" value="trajectory" onClick={(event) => this.setState({controller: 'trajectory'})}/>
+                    <label htmlFor="on">Trajectory</label><br />
+                    <input type="radio" id="off" name="controller" value="position" defaultChecked onClick={(event) => this.setState({controller: 'position'})}/>
+                    <label htmlFor="off">Position</label><br /> 
                 </div>
         
                 <div class="slidecontainer">
