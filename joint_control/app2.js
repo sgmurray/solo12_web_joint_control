@@ -10,16 +10,24 @@ class AppComponent extends React.Component {
         this.state = {
             robotState: '-',
             connected: false,
-            joint_goals: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01],
-            joint_pos: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01],
+            joint_goals: [0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001],
+            joint_pos: [0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001],
             tracking: false,
             controller: 'position'
         }
     }
     name = 'React.js component'
     robotState = 'Stopped'
-    hfe_upper = 1.45
-    hfe_lower = -1.45
+    HAA_upper = 0.9
+    HAA_lower = -0.9
+    HFE_upper = 1.45
+    HFE_lower = -1.45
+    KFE_upper = 2.8
+    KFE_lower = -2.8
+    joint_upper_limits = [this.HAA_upper, this.HFE_upper, this.KFE_upper, this.HAA_upper, this.HFE_upper, this.KFE_upper, this.HAA_upper, this.HFE_upper, this.KFE_upper, this.HAA_upper, this.HFE_upper, this.KFE_upper]
+    joint_lower_limits = [this.HAA_lower, this.HFE_lower, this.KFE_lower, this.HAA_lower, this.HFE_lower, this.KFE_lower, this.HAA_lower, this.HFE_lower, this.KFE_lower, this.HAA_lower, this.HFE_lower, this.KFE_lower]
+    joint_names = ['FL_HAA', 'FL_HFE', 'FL_KFE', 'FR_HAA', 'FR_HFE', 'FR_KFE', 'HL_HAA', 'HL_HFE', 'HL_KFE', 'HR_HAA', 'HR_HFE', 'HR_KFE']
+    joint_remaps = [8, 0, 2, 1, 9, 3, 4, 5, 10, 6, 7, 11]
     connectToRosbridge = () => {
         try {
             ros = new ROSLIB.Ros({
@@ -70,6 +78,7 @@ class AppComponent extends React.Component {
             name: '/forward_position_controller/commands',
             messageType: 'std_msgs/msg/Float64MultiArray'
         })
+        console.log(this.state.joint_goals)
         let msg = new ROSLIB.Message({
             data: this.state.joint_goals
         })
@@ -85,15 +94,15 @@ class AppComponent extends React.Component {
             messageType: 'trajectory_msgs/msg/JointTrajectory'
         })
         let msg = new ROSLIB.Message({
-            joint_names : ["FL_HAA"],
-            points :  [{positions: [this.state.joint_goals[0]] , time_from_start : {sec: 3.0}}]
+            joint_names : this.joint_names,
+            points :  [{positions: this.state.joint_goals , time_from_start : {sec: 3.0}}]
         })
         topic.publish(msg)
+        console.log(this.state.joint_goals)
         console.log("Published joint trajectory YOLO")
     }
 
     robotMoveLegs = () => {
-        console.log("in move legs")
         if (this.state.controller == 'position'){
             this.publishPositionGoal();
         }
@@ -120,7 +129,8 @@ class AppComponent extends React.Component {
     }
 
     updateJointGoals = (i, goal) => {
-        this.state.joint_goals[i] = parseFloat(goal);
+        this.state.joint_goals[i] = parseFloat(goal) + 0.001;
+        //this.state.joint_goals[i] = parseFloat((Math.round(goal * 100) / 100).toFixed(2))
         this.forceUpdate();
         if (this.state.tracking){
             this.robotMoveLegs();
@@ -163,11 +173,90 @@ class AppComponent extends React.Component {
                     <label htmlFor="off">Position</label><br /> 
                 </div>
         
-                <div class="slidecontainer">
-                    <input type="range" min={this.hfe_lower} max={this.hfe_upper} defaultValue="0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(0,event.target.value)}></input>
-                    <p>Joint goal: {this.state.joint_goals[0]} </p>
-                    <p>Joint position: {this.state.joint_pos[8]} </p>
+                <div className="slidecontainer">
+                    <input type="range" min={this.joint_lower_limits[0]} max={this.joint_upper_limits[0]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(0,event.target.value)}></input>
+                    <p>Joint name: {this.joint_names[0]}</p>
+                    <p>Joint goal: {(Math.round(this.state.joint_goals[0] * 100) / 100).toFixed(2)}</p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[0]] * 100) / 100).toFixed(2)} </p>
                 </div>
+
+                <div className="slidecontainer">
+                    <input type="range" min={this.joint_lower_limits[1]} max={this.joint_upper_limits[1]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(1,event.target.value)}></input>
+                    <p>Joint name: {this.joint_names[1]}</p>
+                    <p>Joint goal: {(Math.round(this.state.joint_goals[1] * 100) / 100).toFixed(2)} </p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[1]] * 100) / 100).toFixed(2)} </p>
+                </div>
+
+                <div className="slidecontainer">
+                    <input type="range" min={this.joint_lower_limits[2]} max={this.joint_upper_limits[2]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(2,event.target.value)}></input>
+                    <p>Joint name: {this.joint_names[2]}</p>
+                    <p>Joint goal: {(Math.round(this.state.joint_goals[2] * 100) / 100).toFixed(2)} </p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[2]] * 100) / 100).toFixed(2)} </p>
+                </div>
+
+                <div className="slidecontainer">
+                    <input type="range" min={this.joint_lower_limits[3]} max={this.joint_upper_limits[3]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(3,event.target.value)}></input>
+                    <p>Joint name: {this.joint_names[3]}</p>
+                    <p>Joint goal: {(Math.round(this.state.joint_goals[3] * 100) / 100).toFixed(2)} </p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[3]] * 100) / 100).toFixed(2)} </p>
+                </div>
+
+                <div className="slidecontainer">
+                    <input type="range" min={this.joint_lower_limits[4]} max={this.joint_upper_limits[4]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(4,event.target.value)}></input>
+                    <p>Joint name: {this.joint_names[4]}</p>
+                    <p>Joint goal: {(Math.round(this.state.joint_goals[4] * 100) / 100).toFixed(2)} </p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[4]] * 100) / 100).toFixed(2)} </p>
+                </div>
+
+                <div className="slidecontainer">
+                    <input type="range" min={this.joint_lower_limits[5]} max={this.joint_upper_limits[5]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(5,event.target.value)}></input>
+                    <p>Joint name: {this.joint_names[5]}</p>
+                    <p>Joint goal: {(Math.round(this.state.joint_goals[5] * 100) / 100).toFixed(2)} </p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[5]] * 100) / 100).toFixed(2)} </p>
+                </div>
+
+                <div className="slidecontainer">
+                    <input type="range" min={this.joint_lower_limits[6]} max={this.joint_upper_limits[6]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(6,event.target.value)}></input>
+                    <p>Joint name: {this.joint_names[6]}</p>
+                    <p>Joint goal: {(Math.round(this.state.joint_goals[6] * 100) / 100).toFixed(2)} </p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[6]] * 100) / 100).toFixed(2)} </p>
+                </div>
+
+                <div className="slidecontainer">
+                    <input type="range" min={this.joint_lower_limits[7]} max={this.joint_upper_limits[7]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(7,event.target.value)}></input>
+                    <p>Joint name: {this.joint_names[7]}</p>
+                    <p>Joint goal: {(Math.round(this.state.joint_goals[7] * 100) / 100).toFixed(2)} </p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[7]] * 100) / 100).toFixed(2)} </p>
+                </div>
+
+                <div className="slidecontainer">
+                    <input type="range" min={this.joint_lower_limits[8]} max={this.joint_upper_limits[8]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(8,event.target.value)}></input>
+                    <p>Joint name: {this.joint_names[8]}</p>
+                    <p>Joint goal: {(Math.round(this.state.joint_goals[8] * 100) / 100).toFixed(2)} </p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[8]] * 100) / 100).toFixed(2)} </p>
+                </div>
+
+                <div className="slidecontainer">
+                    <input type="range" min={this.joint_lower_limits[9]} max={this.joint_upper_limits[9]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(9,event.target.value)}></input>
+                    <p>Joint name: {this.joint_names[9]}</p>
+                    <p>Joint goal: {(Math.round(this.state.joint_goals[9] * 100) / 100).toFixed(2)} </p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[9]] * 100) / 100).toFixed(2)} </p>
+                </div>
+
+                <div className="slidecontainer">
+                    <input type="range" min={this.joint_lower_limits[10]} max={this.joint_upper_limits[10]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(10,event.target.value)}></input>
+                    <p>Joint name: {this.joint_names[10]}</p>
+                    <p>Joint goal: {(Math.round(this.state.joint_goals[10] * 100) / 100).toFixed(2)} </p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[10]] * 100) / 100).toFixed(2)} </p>
+                </div>
+
+                <div className="slidecontainer">
+                    <input type="range" min={this.joint_lower_limits[11]} max={this.joint_upper_limits[11]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(11,event.target.value)}></input>
+                    <p>Joint name: {this.joint_names[11]}</p>
+                    <p>Joint goal: {(Math.round(this.state.joint_goals[11] * 100) / 100).toFixed(2)} </p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[11]] * 100) / 100).toFixed(2)} </p>
+                </div>
+
 
 
                 <div>
