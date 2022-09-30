@@ -13,6 +13,7 @@ class AppComponent extends React.Component {
             joint_goals: [0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001],
             joint_pos: [0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001],
             cartesian_goals: [-0.2, 0.045, 0.0, -0.2, 0.045, 0.0, -0.2, 0.045, 0.0, -0.2, 0.045, 0.0],
+            cartesian_pos: [0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001],
             tracking: false,
             controller: 'position',
             input: 'joint_angles'
@@ -30,7 +31,7 @@ class AppComponent extends React.Component {
     joint_lower_limits = [this.HAA_lower, this.HFE_lower, this.KFE_lower, this.HAA_lower, this.HFE_lower, this.KFE_lower, this.HAA_lower, this.HFE_lower, this.KFE_lower, this.HAA_lower, this.HFE_lower, this.KFE_lower]
     joint_names = ['FL_HAA', 'FL_HFE', 'FL_KFE', 'FR_HAA', 'FR_HFE', 'FR_KFE', 'HL_HAA', 'HL_HFE', 'HL_KFE', 'HR_HAA', 'HR_HFE', 'HR_KFE']
     joint_remaps = [8, 0, 2, 1, 9, 3, 4, 5, 10, 6, 7, 11]
-    leg_cartesian_names = ['FL_X', 'FL_Y', 'FL_Z']
+    leg_cartesian_names = ['FL_X', 'FL_Y', 'FL_Z', 'FR_X', 'FR_Y', 'FR_Z', 'HL_X', 'HL_Y', 'HL_Z', 'HR_X', 'HR_Y', 'HR_Z']
     x_upper = -0.1
     x_lower = -0.32
     x_default = (this.x_upper + this.x_lower) / 2
@@ -40,9 +41,9 @@ class AppComponent extends React.Component {
     y_lower = 0.01
     y_upper = 0.08
     y_default = (this.y_upper + this.y_lower) / 2
-    cartesian_lower_limits = [this.x_lower, this.y_lower, this.z_lower]
-    cartesian_upper_limits = [this.x_upper, this.y_upper, this.z_upper]
-    cartesian_defaults = [this.x_default, this.y_default, this.z_default]
+    cartesian_lower_limits = [this.x_lower, this.y_lower, this.z_lower, this.x_lower, this.y_lower, this.z_lower, this.x_lower, this.y_lower, this.z_lower, this.x_lower, this.y_lower, this.z_lower]
+    cartesian_upper_limits = [this.x_upper, this.y_upper, this.z_upper, this.x_upper, this.y_upper, this.z_upper, this.x_upper, this.y_upper, this.z_upper, this.x_upper, this.y_upper, this.z_upper]
+    cartesian_defaults = [this.x_default, this.y_default, this.z_default, this.x_default, this.y_default, this.z_default, this.x_default, this.y_default, this.z_default, this.x_default, this.y_default, this.z_default]
     connectToRosbridge = () => {
         try {
             ros = new ROSLIB.Ros({
@@ -86,6 +87,31 @@ class AppComponent extends React.Component {
         this.setState({
             joint_pos: message.position
         })
+        let FL_cart = this.computeFK(-this.state.joint_pos[this.joint_remaps[0]], this.state.joint_pos[this.joint_remaps[1]], this.state.joint_pos[this.joint_remaps[2]])
+        let FR_cart = this.computeFK(this.state.joint_pos[this.joint_remaps[3]], this.state.joint_pos[this.joint_remaps[4]], this.state.joint_pos[this.joint_remaps[5]])
+        let HL_cart = this.computeFK(-this.state.joint_pos[this.joint_remaps[6]], this.state.joint_pos[this.joint_remaps[7]], this.state.joint_pos[this.joint_remaps[8]])
+        let HR_cart = this.computeFK(this.state.joint_pos[this.joint_remaps[9]], this.state.joint_pos[this.joint_remaps[10]], this.state.joint_pos[this.joint_remaps[11]])
+
+        let temp = this.state.cartesian_pos
+        temp[0] = FL_cart[0]
+        temp[1] = FL_cart[1]
+        temp[2] = FL_cart[2]
+
+        temp[3] = FR_cart[0]
+        temp[4] = FR_cart[1]
+        temp[5] = FR_cart[2]
+
+        temp[6] = HL_cart[0]
+        temp[7] = HL_cart[1]
+        temp[8] = HL_cart[2]
+
+        temp[9] = HR_cart[0]
+        temp[10] = HR_cart[1]
+        temp[11] = HR_cart[2]
+
+        this.setState({
+            cartesian_pos: temp
+        })
     }
     publishPositionGoal = () => {
         let topic = new ROSLIB.Topic({
@@ -108,11 +134,16 @@ class AppComponent extends React.Component {
             name: '/position_trajectory_controller/joint_trajectory',
             messageType: 'trajectory_msgs/msg/JointTrajectory'
         })
+        
         let msg = new ROSLIB.Message({
             joint_names : this.joint_names,
             points :  [{positions: this.state.joint_goals , time_from_start : {sec: 3.0}}]
         })
         topic.publish(msg)
+        //if (this.state.input == 'joint_angles'){
+        // else if (this.state.input == 'cartesian'){
+        
+        // }
         console.log(this.state.joint_goals)
         console.log("Published joint trajectory YOLO")
     }
@@ -184,20 +215,55 @@ class AppComponent extends React.Component {
         
     }
 
-    updateCartesianGoals = (i, goal) => {
-        this.state.cartesian_goals[i] = parseFloat((Math.round(goal * 100) / 100).toFixed(3))
-        let angles = this.computeIK(this.state.cartesian_goals[0], this.state.cartesian_goals[1], this.state.cartesian_goals[2])
-        console.log("goals " + this.state.cartesian_goals[0] + " " + this.state.cartesian_goals[1] + " " + this.state.cartesian_goals[2])
+    computeFK = (t1, t2, t3) => {
+        let ll = 0.16
+        let d = 0.05945
 
-        this.state.joint_goals[0] = angles[0]
-        this.state.joint_goals[1] = angles[1]
-        this.state.joint_goals[2] = angles[2]
-        console.log(angles)        
+        let x = -ll * Math.cos(t1) * Math.cos(t2) - ll * Math.cos(t1) * Math.cos(t2 + t3) - d * Math.sin(t1)
+        let y =   -ll * Math.sin(t1) * Math.cos(t2) - ll * Math.sin(t1) * Math.cos(t2 + t3) + d * Math.cos(t1)
+        let z =   ll * Math.sin(t2) + ll * Math.sin(t2 + t3)
+
+        return [x,y,z]
+
+    }
+
+    updateCartesianGoals = (i, goal) => {
+        this.state.cartesian_goals[i] = parseFloat((Math.round(goal * 1000) / 1000).toFixed(3))
+        // let angles = this.computeIK(this.state.cartesian_goals[0], this.state.cartesian_goals[1], this.state.cartesian_goals[2])
+        // console.log("goals " + this.state.cartesian_goals[0] + " " + this.state.cartesian_goals[1] + " " + this.state.cartesian_goals[2])
+
+        // this.state.joint_goals[0] = -angles[0]
+        // this.state.joint_goals[1] = angles[1]
+        // this.state.joint_goals[2] = angles[2]
+        let angles = this.cartesianGoals2JointGoals(this.state.cartesian_goals)
+        console.log(angles)
+        this.state.joint_goals = angles
+        // this.state.joint_goals[0] = angles[0]
+        // this.state.joint_goals[1] = angles[1]
+        // this.state.joint_goals[2] = angles[2]
+
+        // this.state.joint_goals[3] = angles[3]
+        // this.state.joint_goals[4] = angles[4]
+        // this.state.joint_goals[5] = angles[5]
+
+        // this.state.joint_goals[6] = angles[6]
+        // this.state.joint_goals[7] = angles[7]
+        // this.state.joint_goals[8] = angles[8]             
         //this.state.joint_goals[i] = parseFloat((Math.round(goal * 100) / 100).toFixed(2))
         this.forceUpdate();
         if (this.state.tracking){
             this.robotMoveLegs();
         }
+    }
+
+    cartesianGoals2JointGoals = (cartesian_goals) => {
+        console.log("FL goals: " + [cartesian_goals[0], cartesian_goals[1], cartesian_goals[2]])
+        console.log("FR goals: " + [cartesian_goals[3], cartesian_goals[4], cartesian_goals[5]])
+        let FL_angles = this.computeIK(cartesian_goals[0], cartesian_goals[1], cartesian_goals[2])
+        let FR_angles = this.computeIK(cartesian_goals[3], cartesian_goals[4], cartesian_goals[5])
+        let HL_angles = this.computeIK(cartesian_goals[6], cartesian_goals[7], cartesian_goals[8])
+        let HR_angles = this.computeIK(cartesian_goals[9], cartesian_goals[10], cartesian_goals[11])
+        return [-FL_angles[0], FL_angles[1], FL_angles[2], FR_angles[0], FR_angles[1], FR_angles[2], -HL_angles[0], HL_angles[1], HL_angles[2], HR_angles[0], HR_angles[1], HR_angles[2]]
     }
 
     render() {
@@ -350,27 +416,108 @@ class AppComponent extends React.Component {
                 {this.state.input == 'cartesian' &&
                 <div className="slidecontainer">
                     <input type="range" min={this.cartesian_lower_limits[0]} max={this.cartesian_upper_limits[0]} defaultValue={this.cartesian_defaults[0]} class="slider" id="myRange" step="0.005" onChange={(event)=> this.updateCartesianGoals(0, event.target.value)}></input>
-                    <p>Joint name: {this.leg_cartesian_names[0]}</p>
+                    <p>Axis name: {this.leg_cartesian_names[0]}</p>
                     <p>Cartesian goal: {(Math.round(this.state.cartesian_goals[0] * 1000) / 1000).toFixed(3)} </p>
-                    <p>Cartesian position: {(Math.round(this.state.joint_pos[this.joint_remaps[1]] * 1000) / 1000).toFixed(3)} </p>
+                    <p>Cartesian position: {(Math.round(this.state.cartesian_pos[0] * 1000) / 1000).toFixed(3)} </p>
                 </div>
                 }
 
                 {this.state.input == 'cartesian' &&
                 <div className="slidecontainer">
                     <input type="range" min={this.cartesian_lower_limits[1]} max={this.cartesian_upper_limits[1]} defaultValue={this.cartesian_defaults[1]} class="slider" id="myRange" step="0.005" onChange={(event)=> this.updateCartesianGoals(1, event.target.value)}></input>
-                    <p>Joint name: {this.leg_cartesian_names[1]}</p>
+                    <p>Axis name: {this.leg_cartesian_names[1]}</p>
                     <p>Cartesian goal: {(Math.round(this.state.cartesian_goals[1] * 1000) / 1000).toFixed(3)} </p>
-                    <p>Cartesian position: {(Math.round(this.state.joint_pos[this.joint_remaps[1]] * 1000) / 1000).toFixed(3)} </p>
+                    <p>Cartesian position: {(Math.round(this.state.cartesian_pos[1] * 1000) / 1000).toFixed(3)} </p>
                 </div>
                 }
 
                 {this.state.input == 'cartesian' &&
                 <div className="slidecontainer">
                     <input type="range" min={this.cartesian_lower_limits[2]} max={this.cartesian_upper_limits[2]} defaultValue={this.cartesian_defaults[2]} class="slider" id="myRange" step="0.005" onChange={(event)=> this.updateCartesianGoals(2, event.target.value)}></input>
-                    <p>Joint name: {this.leg_cartesian_names[2]}</p>
+                    <p>Axis name: {this.leg_cartesian_names[2]}</p>
                     <p>Cartesian goal: {(Math.round(this.state.cartesian_goals[2] * 1000) / 1000).toFixed(3)} </p>
-                    <p>Cartesian position: {(Math.round(this.state.joint_pos[this.joint_remaps[1]] * 1000) / 1000).toFixed(3)} </p>
+                    <p>Cartesian position: {(Math.round(this.state.cartesian_pos[2] * 1000) / 1000).toFixed(3)} </p>
+                </div>
+                }
+
+                {this.state.input == 'cartesian' &&
+                <div className="slidecontainer">
+                    <input type="range" min={this.cartesian_lower_limits[3]} max={this.cartesian_upper_limits[3]} defaultValue={this.cartesian_defaults[3]} class="slider" id="myRange" step="0.005" onChange={(event)=> this.updateCartesianGoals(3, event.target.value)}></input>
+                    <p>Axis name: {this.leg_cartesian_names[3]}</p>
+                    <p>Cartesian goal: {(Math.round(this.state.cartesian_goals[3] * 1000) / 1000).toFixed(3)} </p>
+                    <p>Cartesian position: {(Math.round(this.state.cartesian_pos[3] * 1000) / 1000).toFixed(3)} </p>
+                </div>
+                }
+
+                {this.state.input == 'cartesian' &&
+                <div className="slidecontainer">
+                    <input type="range" min={this.cartesian_lower_limits[4]} max={this.cartesian_upper_limits[4]} defaultValue={this.cartesian_defaults[4]} class="slider" id="myRange" step="0.005" onChange={(event)=> this.updateCartesianGoals(4, event.target.value)}></input>
+                    <p>Axis name: {this.leg_cartesian_names[4]}</p>
+                    <p>Cartesian goal: {(Math.round(this.state.cartesian_goals[4] * 1000) / 1000).toFixed(3)} </p>
+                    <p>Cartesian position: {(Math.round(this.state.cartesian_pos[4] * 1000) / 1000).toFixed(3)} </p>
+                </div>
+                }
+
+                {this.state.input == 'cartesian' &&
+                <div className="slidecontainer">
+                    <input type="range" min={this.cartesian_lower_limits[5]} max={this.cartesian_upper_limits[5]} defaultValue={this.cartesian_defaults[5]} class="slider" id="myRange" step="0.005" onChange={(event)=> this.updateCartesianGoals(5, event.target.value)}></input>
+                    <p>Axis name: {this.leg_cartesian_names[5]}</p>
+                    <p>Cartesian goal: {(Math.round(this.state.cartesian_goals[5] * 1000) / 1000).toFixed(3)} </p>
+                    <p>Cartesian position: {(Math.round(this.state.cartesian_pos[5] * 1000) / 1000).toFixed(3)} </p>
+                </div>
+                }
+
+                {this.state.input == 'cartesian' &&
+                <div className="slidecontainer">
+                    <input type="range" min={this.cartesian_lower_limits[6]} max={this.cartesian_upper_limits[6]} defaultValue={this.cartesian_defaults[6]} class="slider" id="myRange" step="0.005" onChange={(event)=> this.updateCartesianGoals(6, event.target.value)}></input>
+                    <p>Axis name: {this.leg_cartesian_names[6]}</p>
+                    <p>Cartesian goal: {(Math.round(this.state.cartesian_goals[6] * 1000) / 1000).toFixed(3)} </p>
+                    <p>Cartesian position: {(Math.round(this.state.cartesian_pos[6] * 1000) / 1000).toFixed(3)} </p>
+                </div>
+                }
+
+                {this.state.input == 'cartesian' &&
+                <div className="slidecontainer">
+                    <input type="range" min={this.cartesian_lower_limits[7]} max={this.cartesian_upper_limits[7]} defaultValue={this.cartesian_defaults[7]} class="slider" id="myRange" step="0.005" onChange={(event)=> this.updateCartesianGoals(7, event.target.value)}></input>
+                    <p>Axis name: {this.leg_cartesian_names[7]}</p>
+                    <p>Cartesian goal: {(Math.round(this.state.cartesian_goals[7] * 1000) / 1000).toFixed(3)} </p>
+                    <p>Cartesian position: {(Math.round(this.state.cartesian_pos[7] * 1000) / 1000).toFixed(3)} </p>
+                </div>
+                }
+
+                {this.state.input == 'cartesian' &&
+                <div className="slidecontainer">
+                    <input type="range" min={this.cartesian_lower_limits[8]} max={this.cartesian_upper_limits[5]} defaultValue={this.cartesian_defaults[5]} class="slider" id="myRange" step="0.005" onChange={(event)=> this.updateCartesianGoals(8, event.target.value)}></input>
+                    <p>Axis name: {this.leg_cartesian_names[8]}</p>
+                    <p>Cartesian goal: {(Math.round(this.state.cartesian_goals[8] * 1000) / 1000).toFixed(3)} </p>
+                    <p>Cartesian position: {(Math.round(this.state.cartesian_pos[8] * 1000) / 1000).toFixed(3)} </p>
+                </div>
+                }
+
+                {this.state.input == 'cartesian' &&
+                <div className="slidecontainer">
+                    <input type="range" min={this.cartesian_lower_limits[9]} max={this.cartesian_upper_limits[9]} defaultValue={this.cartesian_defaults[9]} class="slider" id="myRange" step="0.005" onChange={(event)=> this.updateCartesianGoals(9, event.target.value)}></input>
+                    <p>Axis name: {this.leg_cartesian_names[9]}</p>
+                    <p>Cartesian goal: {(Math.round(this.state.cartesian_goals[9] * 1000) / 1000).toFixed(3)} </p>
+                    <p>Cartesian position: {(Math.round(this.state.cartesian_pos[9] * 1000) / 1000).toFixed(3)} </p>
+                </div>
+                }
+
+                {this.state.input == 'cartesian' &&
+                <div className="slidecontainer">
+                    <input type="range" min={this.cartesian_lower_limits[10]} max={this.cartesian_upper_limits[10]} defaultValue={this.cartesian_defaults[10]} class="slider" id="myRange" step="0.005" onChange={(event)=> this.updateCartesianGoals(10, event.target.value)}></input>
+                    <p>Axis name: {this.leg_cartesian_names[10]}</p>
+                    <p>Cartesian goal: {(Math.round(this.state.cartesian_goals[10] * 1000) / 1000).toFixed(3)} </p>
+                    <p>Cartesian position: {(Math.round(this.state.cartesian_pos[10] * 1000) / 1000).toFixed(3)} </p>
+                </div>
+                }
+
+                {this.state.input == 'cartesian' &&
+                <div className="slidecontainer">
+                    <input type="range" min={this.cartesian_lower_limits[11]} max={this.cartesian_upper_limits[11]} defaultValue={this.cartesian_defaults[11]} class="slider" id="myRange" step="0.005" onChange={(event)=> this.updateCartesianGoals(11, event.target.value)}></input>
+                    <p>Axis name: {this.leg_cartesian_names[11]}</p>
+                    <p>Cartesian goal: {(Math.round(this.state.cartesian_goals[11] * 1000) / 1000).toFixed(3)} </p>
+                    <p>Cartesian position: {(Math.round(this.state.cartesian_pos[11] * 1000) / 1000).toFixed(3)} </p>
                 </div>
                 }
 
