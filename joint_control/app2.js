@@ -15,6 +15,8 @@ class AppComponent extends React.Component {
             cartesian_goals: [-0.2, 0.045, 0.0, -0.2, 0.045, 0.0, -0.2, 0.045, 0.0, -0.2, 0.045, 0.0],
             cartesian_pos: [0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001],
             tracking: false,
+            joint_remaps: [8, 0, 2, 1, 9, 3, 4, 5, 10, 6, 7, 11],
+            robot_name: 'Solo12',
             controller: 'position',
             input: 'joint_angles'
         }
@@ -30,7 +32,8 @@ class AppComponent extends React.Component {
     joint_upper_limits = [this.HAA_upper, this.HFE_upper, this.KFE_upper, this.HAA_upper, this.HFE_upper, this.KFE_upper, this.HAA_upper, this.HFE_upper, this.KFE_upper, this.HAA_upper, this.HFE_upper, this.KFE_upper]
     joint_lower_limits = [this.HAA_lower, this.HFE_lower, this.KFE_lower, this.HAA_lower, this.HFE_lower, this.KFE_lower, this.HAA_lower, this.HFE_lower, this.KFE_lower, this.HAA_lower, this.HFE_lower, this.KFE_lower]
     joint_names = ['FL_HAA', 'FL_HFE', 'FL_KFE', 'FR_HAA', 'FR_HFE', 'FR_KFE', 'HL_HAA', 'HL_HFE', 'HL_KFE', 'HR_HAA', 'HR_HFE', 'HR_KFE']
-    joint_remaps = [8, 0, 2, 1, 9, 3, 4, 5, 10, 6, 7, 11]
+    joint_remaps_solo12 = [8, 0, 2, 1, 9, 3, 4, 5, 10, 6, 7, 11]
+    joint_remaps_solo3 = [0,0,0,0,0,0,0,1,2,0,0,0]
     leg_cartesian_names = ['FL_X', 'FL_Y', 'FL_Z', 'FR_X', 'FR_Y', 'FR_Z', 'HL_X', 'HL_Y', 'HL_Z', 'HR_X', 'HR_Y', 'HR_Z']
     x_upper = -0.1
     x_lower = -0.32
@@ -44,6 +47,7 @@ class AppComponent extends React.Component {
     cartesian_lower_limits = [this.x_lower, this.y_lower, this.z_lower, this.x_lower, this.y_lower, this.z_lower, this.x_lower, this.y_lower, this.z_lower, this.x_lower, this.y_lower, this.z_lower]
     cartesian_upper_limits = [this.x_upper, this.y_upper, this.z_upper, this.x_upper, this.y_upper, this.z_upper, this.x_upper, this.y_upper, this.z_upper, this.x_upper, this.y_upper, this.z_upper]
     cartesian_defaults = [this.x_default, this.y_default, this.z_default, this.x_default, this.y_default, this.z_default, this.x_default, this.y_default, this.z_default, this.x_default, this.y_default, this.z_default]
+
     connectToRosbridge = () => {
         try {
             ros = new ROSLIB.Ros({
@@ -87,10 +91,10 @@ class AppComponent extends React.Component {
         this.setState({
             joint_pos: message.position
         })
-        let FL_cart = this.computeFK(-this.state.joint_pos[this.joint_remaps[0]], this.state.joint_pos[this.joint_remaps[1]], this.state.joint_pos[this.joint_remaps[2]])
-        let FR_cart = this.computeFK(this.state.joint_pos[this.joint_remaps[3]], this.state.joint_pos[this.joint_remaps[4]], this.state.joint_pos[this.joint_remaps[5]])
-        let HL_cart = this.computeFK(-this.state.joint_pos[this.joint_remaps[6]], this.state.joint_pos[this.joint_remaps[7]], this.state.joint_pos[this.joint_remaps[8]])
-        let HR_cart = this.computeFK(this.state.joint_pos[this.joint_remaps[9]], this.state.joint_pos[this.joint_remaps[10]], this.state.joint_pos[this.joint_remaps[11]])
+        let FL_cart = this.computeFK(-this.state.joint_pos[this.state.joint_remaps[0]], this.state.joint_pos[this.state.joint_remaps[1]], this.state.joint_pos[this.state.joint_remaps[2]])
+        let FR_cart = this.computeFK(this.state.joint_pos[this.state.joint_remaps[3]], this.state.joint_pos[this.state.joint_remaps[4]], this.state.joint_pos[this.state.joint_remaps[5]])
+        let HL_cart = this.computeFK(-this.state.joint_pos[this.state.joint_remaps[6]], this.state.joint_pos[this.state.joint_remaps[7]], this.state.joint_pos[this.state.joint_remaps[8]])
+        let HR_cart = this.computeFK(this.state.joint_pos[this.state.joint_remaps[9]], this.state.joint_pos[this.state.joint_remaps[10]], this.state.joint_pos[this.state.joint_remaps[11]])
 
         let temp = this.state.cartesian_pos
         temp[0] = FL_cart[0]
@@ -113,6 +117,16 @@ class AppComponent extends React.Component {
             cartesian_pos: temp
         })
     }
+
+    getJointGoals = () => {
+        if (this.state.robot_name == 'Solo12'){
+            return this.state.joint_goals
+        }
+        else {
+            return [this.state.joint_goals[6], this.state.joint_goals[7], this.state.joint_goals[8] ]
+        }
+    }
+
     publishPositionGoal = () => {
         let topic = new ROSLIB.Topic({
             ros: ros,
@@ -121,13 +135,23 @@ class AppComponent extends React.Component {
         })
         console.log(this.state.joint_goals)
         let msg = new ROSLIB.Message({
-            data: this.state.joint_goals
+            data: this.getJointGoals()
         })
         topic.publish(msg)
         this.setState({
             robotState: 'joint goals published'
         })
     }
+
+    getJointNames = () => {
+        if (this.state.robot_name == 'Solo12'){
+            return this.joint_names
+        }
+        else {
+            return ["HL_HAA", "HL_HFE", "HL_KFE"]
+        }
+    }
+
     publishTrajectoryGoal = () => {
         let topic = new ROSLIB.Topic({
             ros: ros,
@@ -136,15 +160,15 @@ class AppComponent extends React.Component {
         })
         
         let msg = new ROSLIB.Message({
-            joint_names : this.joint_names,
-            points :  [{positions: this.state.joint_goals , time_from_start : {sec: 3.0}}]
+            joint_names : this.getJointNames(),
+            points :  [{positions: this.getJointGoals() , time_from_start : {sec: 3.0}}]
         })
         topic.publish(msg)
         //if (this.state.input == 'joint_angles'){
         // else if (this.state.input == 'cartesian'){
         
         // }
-        console.log(this.state.joint_goals)
+        console.log(this.getJointGoals())
         console.log("Published joint trajectory YOLO")
     }
 
@@ -155,23 +179,6 @@ class AppComponent extends React.Component {
         else if (this.state.controller == 'trajectory'){
             this.publishTrajectoryGoal();
         }
-    }
-    robotStop = () => {
-        let topic = new ROSLIB.Topic({
-            ros: ros,
-            name: '/turtle1/cmd_vel',
-            messageType: 'geometry_msgs/msg/Twist'
-        })
-        
-        let msg = new ROSLIB.Message({
-            // linear: { x: 0 },
-            angular: { z: 0 },
-        })
-        topic.publish(msg)
-        this.setState({
-            robotState: 'stopped'
-        })
-        //this.robotState = 'Stopped'
     }
 
     updateJointGoals = (i, goal) => {
@@ -283,6 +290,13 @@ class AppComponent extends React.Component {
                 </div>
 
                 <div>
+                    <input type="radio" id="on" name="robot" value="Solo12" defaultChecked  onClick={(event) => this.setState({joint_remaps: this.joint_remaps_solo12, robot_name: 'Solo12' })}/>
+                    <label htmlFor="on">Solo12</label><br />
+                    <input type="radio" id="off" name="robot" value="Solo3" onClick={(event) => this.setState({joint_remaps: this.joint_remaps_solo3, robot_name: 'Solo3' })}/>
+                    <label htmlFor="off">Solo3</label><br /> 
+                </div>
+
+                <div>
                     <input type="radio" id="on" name="tracking" value="on" onClick={(event) => this.turnOnTracking()}/>
                     <label htmlFor="on">ON</label><br />
                     <input type="radio" id="off" name="tracking" value="off" defaultChecked onClick={(event) => this.setState({tracking: false})}/>
@@ -305,57 +319,57 @@ class AppComponent extends React.Component {
 
 
 
-                {this.state.input == 'joint_angles' &&
+                {this.state.input == 'joint_angles' && this.state.robot_name == 'Solo12' &&
                 <div className="slidecontainer">
                     <input type="range" min={this.joint_lower_limits[0]} max={this.joint_upper_limits[0]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(0,event.target.value)}></input>
                     <p>Joint name: {this.joint_names[0]}</p>
                     <p>Joint goal: {(Math.round(this.state.joint_goals[0] * 100) / 100).toFixed(2)}</p>
-                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[0]] * 100) / 100).toFixed(2)} </p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.state.joint_remaps[0]] * 100) / 100).toFixed(2)} </p>
                 </div>
                 }
 
-                {this.state.input == 'joint_angles' &&
+                {this.state.input == 'joint_angles' && this.state.robot_name == 'Solo12' &&
                 <div className="slidecontainer">
                     <input type="range" min={this.joint_lower_limits[1]} max={this.joint_upper_limits[1]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(1,event.target.value)}></input>
                     <p>Joint name: {this.joint_names[1]}</p>
                     <p>Joint goal: {(Math.round(this.state.joint_goals[1] * 100) / 100).toFixed(2)} </p>
-                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[1]] * 100) / 100).toFixed(2)} </p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.state.joint_remaps[1]] * 100) / 100).toFixed(2)} </p>
                 </div> 
                 }
 
-                {this.state.input == 'joint_angles' &&
+                {this.state.input == 'joint_angles' && this.state.robot_name == 'Solo12' &&
                 <div className="slidecontainer">
                     <input type="range" min={this.joint_lower_limits[2]} max={this.joint_upper_limits[2]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(2,event.target.value)}></input>
                     <p>Joint name: {this.joint_names[2]}</p>
                     <p>Joint goal: {(Math.round(this.state.joint_goals[2] * 100) / 100).toFixed(2)} </p>
-                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[2]] * 100) / 100).toFixed(2)} </p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.state.joint_remaps[2]] * 100) / 100).toFixed(2)} </p>
                 </div>
                 }
 
-                {this.state.input == 'joint_angles' &&
+                {this.state.input == 'joint_angles' && this.state.robot_name == 'Solo12' &&
                 <div className="slidecontainer">
                     <input type="range" min={this.joint_lower_limits[3]} max={this.joint_upper_limits[3]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(3,event.target.value)}></input>
                     <p>Joint name: {this.joint_names[3]}</p>
                     <p>Joint goal: {(Math.round(this.state.joint_goals[3] * 100) / 100).toFixed(2)} </p>
-                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[3]] * 100) / 100).toFixed(2)} </p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.state.joint_remaps[3]] * 100) / 100).toFixed(2)} </p>
                 </div>
                 }
 
-                {this.state.input == 'joint_angles' &&
+                {this.state.input == 'joint_angles' && this.state.robot_name == 'Solo12' &&
                 <div className="slidecontainer">
                     <input type="range" min={this.joint_lower_limits[4]} max={this.joint_upper_limits[4]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(4,event.target.value)}></input>
                     <p>Joint name: {this.joint_names[4]}</p>
                     <p>Joint goal: {(Math.round(this.state.joint_goals[4] * 100) / 100).toFixed(2)} </p>
-                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[4]] * 100) / 100).toFixed(2)} </p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.state.joint_remaps[4]] * 100) / 100).toFixed(2)} </p>
                 </div>
                 }
 
-                {this.state.input == 'joint_angles' &&
+                {this.state.input == 'joint_angles' && this.state.robot_name == 'Solo12' &&
                 <div className="slidecontainer">
                     <input type="range" min={this.joint_lower_limits[5]} max={this.joint_upper_limits[5]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(5,event.target.value)}></input>
                     <p>Joint name: {this.joint_names[5]}</p>
                     <p>Joint goal: {(Math.round(this.state.joint_goals[5] * 100) / 100).toFixed(2)} </p>
-                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[5]] * 100) / 100).toFixed(2)} </p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.state.joint_remaps[5]] * 100) / 100).toFixed(2)} </p>
                 </div>
                 } 
 
@@ -364,7 +378,7 @@ class AppComponent extends React.Component {
                     <input type="range" min={this.joint_lower_limits[6]} max={this.joint_upper_limits[6]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(6,event.target.value)}></input>
                     <p>Joint name: {this.joint_names[6]}</p>
                     <p>Joint goal: {(Math.round(this.state.joint_goals[6] * 100) / 100).toFixed(2)} </p>
-                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[6]] * 100) / 100).toFixed(2)} </p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.state.joint_remaps[6]] * 100) / 100).toFixed(2)} </p>
                 </div>
                 }
 
@@ -373,7 +387,7 @@ class AppComponent extends React.Component {
                     <input type="range" min={this.joint_lower_limits[7]} max={this.joint_upper_limits[7]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(7,event.target.value)}></input>
                     <p>Joint name: {this.joint_names[7]}</p>
                     <p>Joint goal: {(Math.round(this.state.joint_goals[7] * 100) / 100).toFixed(2)} </p>
-                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[7]] * 100) / 100).toFixed(2)} </p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.state.joint_remaps[7]] * 100) / 100).toFixed(2)} </p>
                 </div>
                 }
 
@@ -382,38 +396,38 @@ class AppComponent extends React.Component {
                     <input type="range" min={this.joint_lower_limits[8]} max={this.joint_upper_limits[8]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(8,event.target.value)}></input>
                     <p>Joint name: {this.joint_names[8]}</p>
                     <p>Joint goal: {(Math.round(this.state.joint_goals[8] * 100) / 100).toFixed(2)} </p>
-                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[8]] * 100) / 100).toFixed(2)} </p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.state.joint_remaps[8]] * 100) / 100).toFixed(2)} </p>
                 </div>
                 }
 
-                {this.state.input == 'joint_angles' &&
+                {this.state.input == 'joint_angles' && this.state.robot_name == 'Solo12' &&
                 <div className="slidecontainer">
                     <input type="range" min={this.joint_lower_limits[9]} max={this.joint_upper_limits[9]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(9,event.target.value)}></input>
                     <p>Joint name: {this.joint_names[9]}</p>
                     <p>Joint goal: {(Math.round(this.state.joint_goals[9] * 100) / 100).toFixed(2)} </p>
-                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[9]] * 100) / 100).toFixed(2)} </p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.state.joint_remaps[9]] * 100) / 100).toFixed(2)} </p>
                 </div>
                 }
 
-                {this.state.input == 'joint_angles' &&
+                {this.state.input == 'joint_angles' && this.state.robot_name == 'Solo12' &&
                 <div className="slidecontainer">
                     <input type="range" min={this.joint_lower_limits[10]} max={this.joint_upper_limits[10]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(10,event.target.value)}></input>
                     <p>Joint name: {this.joint_names[10]}</p>
                     <p>Joint goal: {(Math.round(this.state.joint_goals[10] * 100) / 100).toFixed(2)} </p>
-                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[10]] * 100) / 100).toFixed(2)} </p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.state.joint_remaps[10]] * 100) / 100).toFixed(2)} </p>
                 </div>
                 }
 
-                {this.state.input == 'joint_angles' &&
+                {this.state.input == 'joint_angles' && this.state.robot_name == 'Solo12' &&
                 <div className="slidecontainer">
                     <input type="range" min={this.joint_lower_limits[11]} max={this.joint_upper_limits[11]} defaultValue="0.0" class="slider" id="myRange" step="0.05" onChange={(event)=> this.updateJointGoals(11,event.target.value)}></input>
                     <p>Joint name: {this.joint_names[11]}</p>
                     <p>Joint goal: {(Math.round(this.state.joint_goals[11] * 100) / 100).toFixed(2)} </p>
-                    <p>Joint position: {(Math.round(this.state.joint_pos[this.joint_remaps[11]] * 100) / 100).toFixed(2)} </p>
+                    <p>Joint position: {(Math.round(this.state.joint_pos[this.state.joint_remaps[11]] * 100) / 100).toFixed(2)} </p>
                 </div>
                 }
 
-                {this.state.input == 'cartesian' &&
+                {this.state.input == 'cartesian' && this.state.robot_name == 'Solo12' &&
                 <div className="slidecontainer">
                     <input type="range" min={this.cartesian_lower_limits[0]} max={this.cartesian_upper_limits[0]} defaultValue={this.cartesian_defaults[0]} class="slider" id="myRange" step="0.005" onChange={(event)=> this.updateCartesianGoals(0, event.target.value)}></input>
                     <p>Axis name: {this.leg_cartesian_names[0]}</p>
@@ -422,7 +436,7 @@ class AppComponent extends React.Component {
                 </div>
                 }
 
-                {this.state.input == 'cartesian' &&
+                {this.state.input == 'cartesian' && this.state.robot_name == 'Solo12' &&
                 <div className="slidecontainer">
                     <input type="range" min={this.cartesian_lower_limits[1]} max={this.cartesian_upper_limits[1]} defaultValue={this.cartesian_defaults[1]} class="slider" id="myRange" step="0.005" onChange={(event)=> this.updateCartesianGoals(1, event.target.value)}></input>
                     <p>Axis name: {this.leg_cartesian_names[1]}</p>
@@ -431,7 +445,7 @@ class AppComponent extends React.Component {
                 </div>
                 }
 
-                {this.state.input == 'cartesian' &&
+                {this.state.input == 'cartesian' && this.state.robot_name == 'Solo12' &&
                 <div className="slidecontainer">
                     <input type="range" min={this.cartesian_lower_limits[2]} max={this.cartesian_upper_limits[2]} defaultValue={this.cartesian_defaults[2]} class="slider" id="myRange" step="0.005" onChange={(event)=> this.updateCartesianGoals(2, event.target.value)}></input>
                     <p>Axis name: {this.leg_cartesian_names[2]}</p>
@@ -440,7 +454,7 @@ class AppComponent extends React.Component {
                 </div>
                 }
 
-                {this.state.input == 'cartesian' &&
+                {this.state.input == 'cartesian' && this.state.robot_name == 'Solo12' &&
                 <div className="slidecontainer">
                     <input type="range" min={this.cartesian_lower_limits[3]} max={this.cartesian_upper_limits[3]} defaultValue={this.cartesian_defaults[3]} class="slider" id="myRange" step="0.005" onChange={(event)=> this.updateCartesianGoals(3, event.target.value)}></input>
                     <p>Axis name: {this.leg_cartesian_names[3]}</p>
@@ -449,7 +463,7 @@ class AppComponent extends React.Component {
                 </div>
                 }
 
-                {this.state.input == 'cartesian' &&
+                {this.state.input == 'cartesian' && this.state.robot_name == 'Solo12' &&
                 <div className="slidecontainer">
                     <input type="range" min={this.cartesian_lower_limits[4]} max={this.cartesian_upper_limits[4]} defaultValue={this.cartesian_defaults[4]} class="slider" id="myRange" step="0.005" onChange={(event)=> this.updateCartesianGoals(4, event.target.value)}></input>
                     <p>Axis name: {this.leg_cartesian_names[4]}</p>
@@ -458,7 +472,7 @@ class AppComponent extends React.Component {
                 </div>
                 }
 
-                {this.state.input == 'cartesian' &&
+                {this.state.input == 'cartesian' && this.state.robot_name == 'Solo12' &&
                 <div className="slidecontainer">
                     <input type="range" min={this.cartesian_lower_limits[5]} max={this.cartesian_upper_limits[5]} defaultValue={this.cartesian_defaults[5]} class="slider" id="myRange" step="0.005" onChange={(event)=> this.updateCartesianGoals(5, event.target.value)}></input>
                     <p>Axis name: {this.leg_cartesian_names[5]}</p>
@@ -494,7 +508,7 @@ class AppComponent extends React.Component {
                 </div>
                 }
 
-                {this.state.input == 'cartesian' &&
+                {this.state.input == 'cartesian' && this.state.robot_name == 'Solo12' &&
                 <div className="slidecontainer">
                     <input type="range" min={this.cartesian_lower_limits[9]} max={this.cartesian_upper_limits[9]} defaultValue={this.cartesian_defaults[9]} class="slider" id="myRange" step="0.005" onChange={(event)=> this.updateCartesianGoals(9, event.target.value)}></input>
                     <p>Axis name: {this.leg_cartesian_names[9]}</p>
@@ -503,7 +517,7 @@ class AppComponent extends React.Component {
                 </div>
                 }
 
-                {this.state.input == 'cartesian' &&
+                {this.state.input == 'cartesian' && this.state.robot_name == 'Solo12' &&
                 <div className="slidecontainer">
                     <input type="range" min={this.cartesian_lower_limits[10]} max={this.cartesian_upper_limits[10]} defaultValue={this.cartesian_defaults[10]} class="slider" id="myRange" step="0.005" onChange={(event)=> this.updateCartesianGoals(10, event.target.value)}></input>
                     <p>Axis name: {this.leg_cartesian_names[10]}</p>
@@ -512,7 +526,7 @@ class AppComponent extends React.Component {
                 </div>
                 }
 
-                {this.state.input == 'cartesian' &&
+                {this.state.input == 'cartesian' && this.state.robot_name == 'Solo12' &&
                 <div className="slidecontainer">
                     <input type="range" min={this.cartesian_lower_limits[11]} max={this.cartesian_upper_limits[11]} defaultValue={this.cartesian_defaults[11]} class="slider" id="myRange" step="0.005" onChange={(event)=> this.updateCartesianGoals(11, event.target.value)}></input>
                     <p>Axis name: {this.leg_cartesian_names[11]}</p>
